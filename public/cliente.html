@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cliente - Engage Publisher</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="breadcrumbs">
+      <a href="/dashboard.html">Dashboard</a>
+      <span>/</span>
+      <span>Cliente</span>
+    </div>
+
+    <section class="hero">
+      <h1>Programações do Cliente</h1>
+      <div id="dadosCliente" class="stack"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Nova Programação</h2>
+        <div id="mensagemProgramacao" class="feedback" style="display: none;"></div>
+
+        <form id="programacaoForm" class="stack">
+          <div class="field">
+            <label for="nomeProgramacao">Nome da programação</label>
+            <input type="text" id="nomeProgramacao" placeholder="Ex.: Campanha Abril" required>
+          </div>
+
+          <div class="field">
+            <label for="dataInicio">Data inicial</label>
+            <input type="date" id="dataInicio" required>
+          </div>
+
+          <div class="field">
+            <label for="dataFim">Data final</label>
+            <input type="date" id="dataFim" required>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="button">Criar programação</button>
+            <a class="button secondary" href="/dashboard.html">Voltar ao dashboard</a>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Programações</h2>
+        <div id="listaProgramacoes" class="list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="modalEditarProgramacao" style="display: none; position: fixed; inset: 0; background: rgba(47, 38, 29, 0.72); padding: 24px; overflow-y: auto; z-index: 1000;">
+    <div style="width: min(640px, 100%); margin: 0 auto; background: #fffdfa; border-radius: 20px; padding: 24px; border: 1px solid #dcc8ae; box-shadow: 0 24px 60px rgba(47, 38, 29, 0.18);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px;">
+        <h2 style="margin: 0;">Editar Programação</h2>
+        <button id="fecharModalProgramacao" type="button" class="button secondary">Cancelar</button>
+      </div>
+
+      <div id="mensagemModalProgramacao" class="feedback" style="display: none;"></div>
+
+      <form id="formEditarProgramacao" class="stack">
+        <input type="hidden" id="programacaoEdicaoId">
+
+        <div class="field">
+          <label for="programacaoEdicaoNome">Nome da programação</label>
+          <input type="text" id="programacaoEdicaoNome" required>
+        </div>
+
+        <div class="field">
+          <label for="programacaoEdicaoDataInicio">Data inicial</label>
+          <input type="date" id="programacaoEdicaoDataInicio" required>
+        </div>
+
+        <div class="field">
+          <label for="programacaoEdicaoDataFim">Data final</label>
+          <input type="date" id="programacaoEdicaoDataFim" required>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="button">Salvar</button>
+          <button id="cancelarModalProgramacao" type="button" class="button secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const clienteId = params.get('id');
+    const dadosCliente = document.getElementById('dadosCliente');
+    const listaProgramacoes = document.getElementById('listaProgramacoes');
+    const mensagemProgramacao = document.getElementById('mensagemProgramacao');
+    const modalEditarProgramacao = document.getElementById('modalEditarProgramacao');
+    const mensagemModalProgramacao = document.getElementById('mensagemModalProgramacao');
+    let programacaoEmEdicao = null;
+
+    function formatarData(data) {
+      return new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    }
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemProgramacao.textContent = texto;
+      mensagemProgramacao.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemProgramacao.style.display = 'block';
+    }
+
+    function exibirMensagemModal(texto, tipo = 'sucesso') {
+      mensagemModalProgramacao.textContent = texto;
+      mensagemModalProgramacao.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemModalProgramacao.style.display = 'block';
+    }
+
+    function esconderMensagemModal() {
+      mensagemModalProgramacao.style.display = 'none';
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
+    }
+
+    function abrirModalProgramacao(programacao) {
+      programacaoEmEdicao = programacao;
+      esconderMensagemModal();
+      document.getElementById('programacaoEdicaoId').value = programacao.id;
+      document.getElementById('programacaoEdicaoNome').value = programacao.nome || '';
+      document.getElementById('programacaoEdicaoDataInicio').value = programacao.data_inicio;
+      document.getElementById('programacaoEdicaoDataFim').value = programacao.data_fim;
+      modalEditarProgramacao.style.display = 'block';
+    }
+
+    function fecharModalProgramacao() {
+      modalEditarProgramacao.style.display = 'none';
+      programacaoEmEdicao = null;
+    }
+
+    async function excluirProgramacao(id) {
+      const confirmou = window.confirm('Excluir esta programação? Essa ação remove os conteúdos relacionados.');
+
+      if (!confirmou) {
+        return;
+      }
+
+      const resposta = await fetch(`/programacoes/${id}`, {
+        method: 'DELETE'
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao excluir programação.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      carregarProgramacoes();
+    }
+
+    async function carregarCliente() {
+      const resposta = await fetch(`/clientes/${clienteId}`);
+      const cliente = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        dadosCliente.innerHTML = `<div class="feedback error">${cliente.mensagem}</div>`;
+        return;
+      }
+
+      dadosCliente.innerHTML = `
+        <h2>${cliente.nome}</h2>
+        <p><strong>ID do cliente:</strong> ${cliente.id}</p>
+      `;
+    }
+
+    async function carregarProgramacoes() {
+      const resposta = await fetch(`/clientes/${clienteId}/programacoes`);
+      const programacoes = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        listaProgramacoes.innerHTML = `<div class="feedback error">${programacoes.mensagem}</div>`;
+        return;
+      }
+
+      if (!programacoes.length) {
+        listaProgramacoes.innerHTML = '<div class="empty">Nenhuma programação cadastrada para este cliente.</div>';
+        return;
+      }
+
+      listaProgramacoes.innerHTML = '';
+
+      programacoes.forEach((programacao) => {
+        const item = document.createElement('article');
+        item.className = 'item';
+        item.innerHTML = `
+          <h3>${programacao.nome || 'Programação sem nome'}</h3>
+          <p><strong>Período:</strong> ${formatarData(programacao.data_inicio)} até ${formatarData(programacao.data_fim)}</p>
+          <p><strong>ID:</strong> ${programacao.id}</p>
+          <div class="actions">
+            <a class="button" href="/programacao.html?id=${programacao.id}&clienteId=${clienteId}">Abrir conteúdos</a>
+            <button class="button secondary" type="button" data-acao="editar">Editar</button>
+            <button class="button secondary" type="button" data-acao="excluir">Excluir</button>
+          </div>
+        `;
+
+        item.querySelector('[data-acao="editar"]').addEventListener('click', () => abrirModalProgramacao(programacao));
+        item.querySelector('[data-acao="excluir"]').addEventListener('click', () => excluirProgramacao(programacao.id));
+
+        listaProgramacoes.appendChild(item);
+      });
+    }
+
+    document.getElementById('programacaoForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const nome = document.getElementById('nomeProgramacao').value;
+      const data_inicio = document.getElementById('dataInicio').value;
+      const data_fim = document.getElementById('dataFim').value;
+
+      const resposta = await fetch(`/clientes/${clienteId}/programacoes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ nome, data_inicio, data_fim })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao criar programação.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      event.target.reset();
+      carregarProgramacoes();
+    });
+
+    document.getElementById('formEditarProgramacao').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!programacaoEmEdicao) {
+        return;
+      }
+
+      esconderMensagemModal();
+
+      const resposta = await fetch(`/programacoes/${programacaoEmEdicao.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nome: document.getElementById('programacaoEdicaoNome').value,
+          data_inicio: document.getElementById('programacaoEdicaoDataInicio').value,
+          data_fim: document.getElementById('programacaoEdicaoDataFim').value
+        })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagemModal(resultado.mensagem || 'Erro ao atualizar programação.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      fecharModalProgramacao();
+      carregarProgramacoes();
+    });
+
+    document.getElementById('fecharModalProgramacao').addEventListener('click', fecharModalProgramacao);
+    document.getElementById('cancelarModalProgramacao').addEventListener('click', fecharModalProgramacao);
+    modalEditarProgramacao.addEventListener('click', (event) => {
+      if (event.target === modalEditarProgramacao) {
+        fecharModalProgramacao();
+      }
+    });
+
+    carregarCliente();
+    carregarProgramacoes();
+  </script>
+</body>
+</html>

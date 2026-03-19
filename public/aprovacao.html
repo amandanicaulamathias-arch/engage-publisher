@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aprovação de Programação</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero" style="max-width: 900px; margin: 48px auto 0;">
+      <h1>Aprovação de Programação</h1>
+      <div id="mensagemAprovacao" class="feedback" style="display: none;"></div>
+      <div id="dadosProgramacao" class="stack"></div>
+      <div id="listaConteudos" class="list" style="margin-top: 24px;"></div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const clienteId = params.get('clienteId');
+    const programacaoId = params.get('programacaoId');
+    const dadosProgramacao = document.getElementById('dadosProgramacao');
+    const listaConteudos = document.getElementById('listaConteudos');
+    const mensagemAprovacao = document.getElementById('mensagemAprovacao');
+
+    function formatarData(data) {
+      return new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    }
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemAprovacao.textContent = texto;
+      mensagemAprovacao.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemAprovacao.style.display = 'block';
+    }
+
+    function renderizarSliderCarrossel(urls, conteudoId) {
+      if (!urls?.length) {
+        return '';
+      }
+
+      return `
+        <div class="carrossel-slider" data-carrossel-id="${conteudoId}" data-total-slides="${urls.length}" data-slide-atual="0" style="margin-bottom: 12px;">
+          <div style="position: relative; overflow: hidden; border-radius: 16px; background: #f6eee3; border: 1px solid #e7d8c5;">
+            <div class="carrossel-track" style="display: flex; transition: transform 0.28s ease;">
+              ${urls.map((url, index) => `
+                <div style="min-width: 100%; padding: 14px;">
+                  <img
+                    src="${url}"
+                    alt="Página ${index + 1}"
+                    style="width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 12px; display: block;"
+                  >
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px;">
+            <button type="button" class="button secondary carrossel-anterior">Anterior</button>
+            <span class="carrossel-indicador" style="font-weight: 700; color: #5b3b18;">1 de ${urls.length}</span>
+            <button type="button" class="button secondary carrossel-proximo">Próximo</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function atualizarSliderCarrossel(container, proximoIndice) {
+      const totalSlides = Number(container.dataset.totalSlides);
+      const indiceNormalizado = ((proximoIndice % totalSlides) + totalSlides) % totalSlides;
+      const track = container.querySelector('.carrossel-track');
+      const indicador = container.querySelector('.carrossel-indicador');
+
+      container.dataset.slideAtual = String(indiceNormalizado);
+      track.style.transform = `translateX(-${indiceNormalizado * 100}%)`;
+      indicador.textContent = `${indiceNormalizado + 1} de ${totalSlides}`;
+    }
+
+    function ativarSlidersCarrossel() {
+      document.querySelectorAll('.carrossel-slider').forEach((container) => {
+        if (container.dataset.sliderAtivado === 'true') {
+          return;
+        }
+
+        const botaoAnterior = container.querySelector('.carrossel-anterior');
+        const botaoProximo = container.querySelector('.carrossel-proximo');
+
+        botaoAnterior.addEventListener('click', () => {
+          const indiceAtual = Number(container.dataset.slideAtual || 0);
+          atualizarSliderCarrossel(container, indiceAtual - 1);
+        });
+
+        botaoProximo.addEventListener('click', () => {
+          const indiceAtual = Number(container.dataset.slideAtual || 0);
+          atualizarSliderCarrossel(container, indiceAtual + 1);
+        });
+
+        container.dataset.sliderAtivado = 'true';
+      });
+    }
+
+    function renderizarMidias(conteudo) {
+      if (conteudo.tipo === 'post' && conteudo.imagem_post_url) {
+        return `<img src="${conteudo.imagem_post_url}" alt="${conteudo.titulo}" style="width: 100%; border-radius: 12px; margin-bottom: 12px;">`;
+      }
+
+      if (conteudo.tipo === 'carrossel' && conteudo.imagens_carrossel_urls?.length) {
+        return renderizarSliderCarrossel(conteudo.imagens_carrossel_urls, conteudo.id);
+      }
+
+      if (conteudo.tipo === 'reels') {
+        if (!conteudo.video_reels_url) {
+          return '';
+        }
+
+        const poster = conteudo.capa_reels_url
+          ? ` poster="${conteudo.capa_reels_url}"`
+          : '';
+
+        return `
+          <video controls${poster} style="width: 100%; border-radius: 12px; margin-bottom: 12px; display: block; background: #000;">
+            <source src="${conteudo.video_reels_url}">
+          </video>
+        `;
+      }
+
+      return '';
+    }
+
+    async function atualizarStatus(tokenAprovacao, status) {
+      const resposta = await fetch(`/conteudos/aprovacao/${tokenAprovacao}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status })
+      });
+
+      const resultado = await resposta.json();
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao atualizar aprovação.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      carregarProgramacaoCompleta();
+    }
+
+    function renderizarLista(conteudos) {
+      if (!conteudos.length) {
+        listaConteudos.innerHTML = '<div class="empty">Nenhum conteúdo cadastrado nesta programação.</div>';
+        return;
+      }
+
+      listaConteudos.innerHTML = '';
+
+      conteudos.forEach((conteudo) => {
+        const item = document.createElement('article');
+        item.className = 'item';
+        item.innerHTML = `
+          <div class="meta">
+            <span class="tag">${conteudo.tipo}</span>
+            <span class="tag">${conteudo.status}</span>
+          </div>
+          ${renderizarMidias(conteudo)}
+          <h3>${conteudo.titulo}</h3>
+          <p>${conteudo.legenda || 'Sem legenda cadastrada.'}</p>
+          <p><strong>Criado em:</strong> ${new Date(conteudo.criado_em).toLocaleString('pt-BR')}</p>
+          <div class="actions">
+            <button class="button" type="button" data-status="aprovado">Aprovar</button>
+            <button class="button secondary" type="button" data-status="reprovado">Reprovar</button>
+          </div>
+        `;
+
+        item.querySelectorAll('button').forEach((botao) => {
+          botao.addEventListener('click', () => atualizarStatus(conteudo.token_aprovacao, botao.dataset.status));
+        });
+
+        listaConteudos.appendChild(item);
+      });
+
+      ativarSlidersCarrossel();
+    }
+
+    async function carregarPorToken() {
+      const resposta = await fetch(`/conteudos/aprovacao/${token}`);
+      const conteudo = await resposta.json();
+
+      if (!resposta.ok) {
+        dadosProgramacao.innerHTML = `<div class="feedback error">${conteudo.mensagem}</div>`;
+        return;
+      }
+
+      dadosProgramacao.innerHTML = `
+        <p><strong>Cliente:</strong> ${conteudo.cliente_nome}</p>
+        <p><strong>Programação:</strong> ${formatarData(conteudo.data_inicio)} até ${formatarData(conteudo.data_fim)}</p>
+      `;
+
+      renderizarLista([conteudo]);
+    }
+
+    async function carregarProgramacaoCompleta() {
+      if (!clienteId || !programacaoId) {
+        dadosProgramacao.innerHTML = '<div class="feedback error">Cliente ou programação não informados.</div>';
+        return;
+      }
+
+      const [respostaProgramacao, respostaConteudos] = await Promise.all([
+        fetch(`/clientes/${clienteId}/programacoes/${programacaoId}`),
+        fetch(`/clientes/${clienteId}/programacoes/${programacaoId}/conteudos`)
+      ]);
+
+      const programacao = await respostaProgramacao.json();
+      const conteudos = await respostaConteudos.json();
+
+      if (!respostaProgramacao.ok) {
+        dadosProgramacao.innerHTML = `<div class="feedback error">${programacao.mensagem}</div>`;
+        return;
+      }
+
+      if (!respostaConteudos.ok) {
+        listaConteudos.innerHTML = `<div class="feedback error">${conteudos.mensagem}</div>`;
+        return;
+      }
+
+      dadosProgramacao.innerHTML = `
+        <p><strong>Cliente:</strong> ${programacao.cliente_nome}</p>
+        <p><strong>Programação:</strong> ${formatarData(programacao.data_inicio)} até ${formatarData(programacao.data_fim)}</p>
+      `;
+
+      renderizarLista(conteudos);
+    }
+
+    if (token) {
+      carregarPorToken();
+    } else {
+      carregarProgramacaoCompleta();
+    }
+  </script>
+</body>
+</html>

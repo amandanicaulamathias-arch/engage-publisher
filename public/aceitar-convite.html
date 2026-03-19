@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aceitar Convite - Engage Publisher</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero" style="max-width: 680px; margin: 64px auto 0;">
+      <h1>Aceitar Convite</h1>
+      <p>Defina sua senha para ativar sua conta da equipe.</p>
+      <div id="mensagemConvite" class="feedback" style="display: none;"></div>
+    </section>
+
+    <section class="card" style="max-width: 680px; margin: 24px auto 0;">
+      <div id="estadoCarregando" class="empty">Validando convite...</div>
+
+      <div id="conteudoConvite" style="display: none;">
+        <div class="stack" style="margin-bottom: 18px;">
+          <div>
+            <strong>Nome:</strong>
+            <span id="conviteNome"></span>
+          </div>
+          <div>
+            <strong>E-mail:</strong>
+            <span id="conviteEmail"></span>
+          </div>
+          <div>
+            <strong>Expira em:</strong>
+            <span id="conviteExpiracao"></span>
+          </div>
+        </div>
+
+        <form id="formAceitarConvite" class="stack">
+          <div class="field">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" minlength="4" required>
+          </div>
+
+          <div class="field">
+            <label for="confirmacaoSenha">Confirmar senha</label>
+            <input type="password" id="confirmacaoSenha" minlength="4" required>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="button">Ativar conta</button>
+            <a class="button secondary" href="/login.html">Ir para login</a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const mensagemConvite = document.getElementById('mensagemConvite');
+    const estadoCarregando = document.getElementById('estadoCarregando');
+    const conteudoConvite = document.getElementById('conteudoConvite');
+    let conviteAtual = null;
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemConvite.textContent = texto;
+      mensagemConvite.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemConvite.style.display = 'block';
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
+    }
+
+    function formatarData(data) {
+      if (!data) {
+        return '-';
+      }
+
+      return new Date(data).toLocaleString('pt-BR');
+    }
+
+    function preencherConvite(convite) {
+      conviteAtual = convite;
+      document.getElementById('conviteNome').textContent = convite.nome;
+      document.getElementById('conviteEmail').textContent = convite.email;
+      document.getElementById('conviteExpiracao').textContent = formatarData(convite.expirado_em);
+      estadoCarregando.style.display = 'none';
+      conteudoConvite.style.display = 'block';
+    }
+
+    async function carregarConvite() {
+      if (!token) {
+        estadoCarregando.textContent = 'Token de convite não informado.';
+        exibirMensagem('Link de convite inválido.', 'erro');
+        return;
+      }
+
+      const resposta = await fetch(`/convites/${encodeURIComponent(token)}`);
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        estadoCarregando.textContent = 'Não foi possível validar o convite.';
+        exibirMensagem(resultado.mensagem || 'Convite inválido.', 'erro');
+        return;
+      }
+
+      preencherConvite(resultado.convite);
+    }
+
+    document.getElementById('formAceitarConvite').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!conviteAtual) {
+        exibirMensagem('Convite ainda não carregado.', 'erro');
+        return;
+      }
+
+      const senha = document.getElementById('senha').value;
+      const confirmacaoSenha = document.getElementById('confirmacaoSenha').value;
+
+      if (senha !== confirmacaoSenha) {
+        exibirMensagem('A confirmação de senha não confere.', 'erro');
+        return;
+      }
+
+      const resposta = await fetch(`/convites/${encodeURIComponent(token)}/aceitar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ senha })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao aceitar convite.', 'erro');
+        return;
+      }
+
+      exibirMensagem('Conta ativada com sucesso. Você já pode fazer login.');
+      conteudoConvite.innerHTML = `
+        <div class="feedback" style="display: block;">
+          Conta criada para <strong>${resultado.usuario.email}</strong>.
+        </div>
+        <div class="actions" style="margin-top: 18px;">
+          <a class="button" href="/login.html">Ir para login</a>
+        </div>
+      `;
+    });
+
+    carregarConvite();
+  </script>
+</body>
+</html>

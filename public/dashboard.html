@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel - Engage Publisher</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>Painel de Clientes</h1>
+      <p>Fluxo atual: dashboard → cliente → programação → conteúdos.</p>
+      <div class="actions">
+        <a class="button secondary" href="/membros.html">Gerenciar membros</a>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Novo Cliente</h2>
+        <div id="mensagemCliente" class="feedback" style="display: none;"></div>
+
+        <form id="clienteForm" class="stack">
+          <div class="field">
+            <label for="nomeCliente">Nome do cliente</label>
+            <input type="text" id="nomeCliente" placeholder="Nome do cliente" required>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="button">Criar cliente</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Clientes</h2>
+        <div id="listaClientes" class="list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="modalEditarCliente" style="display: none; position: fixed; inset: 0; background: rgba(47, 38, 29, 0.72); padding: 24px; overflow-y: auto; z-index: 1000;">
+    <div style="width: min(560px, 100%); margin: 0 auto; background: #fffdfa; border-radius: 20px; padding: 24px; border: 1px solid #dcc8ae; box-shadow: 0 24px 60px rgba(47, 38, 29, 0.18);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px;">
+        <h2 style="margin: 0;">Editar Cliente</h2>
+        <button id="fecharModalCliente" type="button" class="button secondary">Cancelar</button>
+      </div>
+
+      <div id="mensagemModalCliente" class="feedback" style="display: none;"></div>
+
+      <form id="formEditarCliente" class="stack">
+        <input type="hidden" id="clienteEdicaoId">
+
+        <div class="field">
+          <label for="clienteEdicaoNome">Nome do cliente</label>
+          <input type="text" id="clienteEdicaoNome" required>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="button">Salvar</button>
+          <button id="cancelarModalCliente" type="button" class="button secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const mensagemCliente = document.getElementById('mensagemCliente');
+    const modalEditarCliente = document.getElementById('modalEditarCliente');
+    const mensagemModalCliente = document.getElementById('mensagemModalCliente');
+    let clienteEmEdicao = null;
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemCliente.textContent = texto;
+      mensagemCliente.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemCliente.style.display = 'block';
+    }
+
+    function exibirMensagemModal(texto, tipo = 'sucesso') {
+      mensagemModalCliente.textContent = texto;
+      mensagemModalCliente.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemModalCliente.style.display = 'block';
+    }
+
+    function esconderMensagemModal() {
+      mensagemModalCliente.style.display = 'none';
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
+    }
+
+    function abrirModalCliente(cliente) {
+      clienteEmEdicao = cliente;
+      esconderMensagemModal();
+      document.getElementById('clienteEdicaoId').value = cliente.id;
+      document.getElementById('clienteEdicaoNome').value = cliente.nome || '';
+      modalEditarCliente.style.display = 'block';
+    }
+
+    function fecharModalCliente() {
+      modalEditarCliente.style.display = 'none';
+      clienteEmEdicao = null;
+    }
+
+    async function excluirCliente(id, nome) {
+      const confirmou = window.confirm(`Excluir o cliente "${nome}"? Essa ação remove programações e conteúdos relacionados.`);
+
+      if (!confirmou) {
+        return;
+      }
+
+      const resposta = await fetch(`/clientes/${id}`, {
+        method: 'DELETE'
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao excluir cliente.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      carregarClientes();
+    }
+
+    async function carregarClientes() {
+      const resposta = await fetch('/clientes');
+      const clientes = await lerResposta(resposta);
+
+      const lista = document.getElementById('listaClientes');
+
+      if (!resposta.ok) {
+        lista.innerHTML = `<div class="feedback error">${clientes.mensagem}</div>`;
+        return;
+      }
+
+      if (!clientes.length) {
+        lista.innerHTML = '<div class="empty">Nenhum cliente cadastrado.</div>';
+        return;
+      }
+
+      lista.innerHTML = '';
+
+      clientes.forEach((cliente) => {
+        const item = document.createElement('article');
+        item.className = 'item';
+        item.innerHTML = `
+          <h3>${cliente.nome}</h3>
+          <p><strong>ID:</strong> ${cliente.id}</p>
+          <div class="actions">
+            <a class="button" href="/cliente.html?id=${cliente.id}">Abrir cliente</a>
+            <button class="button secondary" type="button" data-acao="editar">Editar</button>
+            <button class="button secondary" type="button" data-acao="excluir">Excluir</button>
+          </div>
+        `;
+
+        item.querySelector('[data-acao="editar"]').addEventListener('click', () => abrirModalCliente(cliente));
+        item.querySelector('[data-acao="excluir"]').addEventListener('click', () => excluirCliente(cliente.id, cliente.nome));
+
+        lista.appendChild(item);
+      });
+    }
+
+    document.getElementById('clienteForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const nome = document.getElementById('nomeCliente').value;
+      const resposta = await fetch('/clientes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ nome })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao criar cliente.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      event.target.reset();
+      carregarClientes();
+    });
+
+    document.getElementById('formEditarCliente').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!clienteEmEdicao) {
+        return;
+      }
+
+      esconderMensagemModal();
+
+      const resposta = await fetch(`/clientes/${clienteEmEdicao.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nome: document.getElementById('clienteEdicaoNome').value
+        })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagemModal(resultado.mensagem || 'Erro ao atualizar cliente.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      fecharModalCliente();
+      carregarClientes();
+    });
+
+    document.getElementById('fecharModalCliente').addEventListener('click', fecharModalCliente);
+    document.getElementById('cancelarModalCliente').addEventListener('click', fecharModalCliente);
+    modalEditarCliente.addEventListener('click', (event) => {
+      if (event.target === modalEditarCliente) {
+        fecharModalCliente();
+      }
+    });
+
+    carregarClientes();
+  </script>
+</body>
+</html>

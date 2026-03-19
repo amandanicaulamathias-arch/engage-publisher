@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conteúdos da Programação - Engage Publisher</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="breadcrumbs">
+      <a href="/dashboard.html">Dashboard</a>
+      <span>/</span>
+      <a id="clienteLink" href="#">Cliente</a>
+      <span>/</span>
+      <span>Programação</span>
+    </div>
+
+    <section class="hero">
+      <h1>Gestão de Conteúdos</h1>
+      <div id="dadosProgramacao" class="stack"></div>
+      <div class="card" style="margin-top: 20px;">
+        <h2>Link Público da Programação</h2>
+        <p>Use um único link para o cliente visualizar toda a programação.</p>
+        <p id="linkProgramacaoTexto"></p>
+        <div class="actions">
+          <a id="linkProgramacaoAbrir" class="button" href="#" target="_blank">Abrir link</a>
+          <button id="copiarLinkProgramacao" class="button secondary" type="button">Copiar link</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Novo Conteúdo</h2>
+        <div id="mensagemFormulario" class="feedback" style="display: none;"></div>
+
+        <form id="conteudoForm" class="stack" enctype="multipart/form-data">
+          <div class="field">
+            <label for="tipo">Tipo</label>
+            <select id="tipo" required>
+              <option value="post">Post</option>
+              <option value="carrossel">Carrossel</option>
+              <option value="reels">Reels</option>
+              <option value="roteiro">Roteiro</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="dataPublicacao">Data de publicação</label>
+            <input type="date" id="dataPublicacao" required>
+          </div>
+
+          <div class="field">
+            <label for="legenda">Legenda</label>
+            <textarea id="legenda" rows="6" placeholder="Descreva o conteúdo ou o roteiro."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="status">Status inicial</label>
+            <select id="status" required>
+              <option value="rascunho">Rascunho</option>
+              <option value="aprovado">Aprovado</option>
+              <option value="reprovado">Reprovado</option>
+              <option value="publicado">Publicado</option>
+            </select>
+          </div>
+
+          <section id="midiaPost" class="stack">
+            <div class="field">
+              <label for="imagemPost">Arte do post</label>
+              <input type="file" id="imagemPost" accept="image/*">
+            </div>
+            <div id="previewImagemPost" class="empty">Nenhuma imagem selecionada.</div>
+          </section>
+
+          <section id="midiaCarrossel" class="stack" style="display: none;">
+            <div class="field">
+              <label for="imagensCarrossel">Páginas do carrossel</label>
+              <input type="file" id="imagensCarrossel" accept="image/*" multiple>
+            </div>
+            <div id="previewCarrossel" class="list"></div>
+          </section>
+
+          <section id="midiaReels" class="stack" style="display: none;">
+            <div class="field">
+              <label for="videoReels">Vídeo do reels</label>
+              <input type="file" id="videoReels" accept="video/*">
+            </div>
+            <div id="previewVideoReels" class="empty">Nenhum vídeo selecionado.</div>
+
+            <div class="field">
+              <label for="capaReels">Capa do reels</label>
+              <input type="file" id="capaReels" accept="image/*">
+            </div>
+            <div id="previewCapaReels" class="empty">Nenhuma capa selecionada.</div>
+          </section>
+
+          <section id="midiaRoteiro" class="stack" style="display: none;">
+            <div class="empty">Roteiro não exige mídia anexa.</div>
+          </section>
+
+          <div class="actions">
+            <button type="submit" class="button">Salvar conteúdo</button>
+            <a id="voltarCliente" class="button secondary" href="#">Voltar para cliente</a>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Conteúdos da Programação</h2>
+        <div id="listaConteudos" class="list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="modalEdicaoConteudo" style="display: none; position: fixed; inset: 0; background: rgba(47, 38, 29, 0.72); padding: 24px; overflow-y: auto; z-index: 1000;">
+    <div style="width: min(760px, 100%); margin: 0 auto; background: #fffdfa; border-radius: 20px; padding: 24px; border: 1px solid #dcc8ae; box-shadow: 0 24px 60px rgba(47, 38, 29, 0.18);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px;">
+        <h2 style="margin: 0;">Editar Conteúdo</h2>
+        <button id="fecharModalEdicao" type="button" class="button secondary">Fechar</button>
+      </div>
+
+      <div id="mensagemModalEdicao" class="feedback" style="display: none;"></div>
+
+      <form id="formEdicaoConteudo" class="stack" enctype="multipart/form-data">
+        <input type="hidden" id="edicaoConteudoId">
+
+        <div class="field">
+          <label for="edicaoTipo">Tipo</label>
+          <select id="edicaoTipo" required>
+            <option value="post">Post</option>
+            <option value="carrossel">Carrossel</option>
+            <option value="reels">Reels</option>
+            <option value="roteiro">Roteiro</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="edicaoDataPublicacao">Data de publicação</label>
+          <input type="date" id="edicaoDataPublicacao" required>
+        </div>
+
+        <div class="field">
+          <label for="edicaoLegenda">Legenda</label>
+          <textarea id="edicaoLegenda" rows="6" placeholder="Legenda do conteúdo."></textarea>
+        </div>
+
+        <div class="field">
+          <label for="edicaoStatus">Status</label>
+          <select id="edicaoStatus" required>
+            <option value="rascunho">Rascunho</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="reprovado">Reprovado</option>
+            <option value="publicado">Publicado</option>
+          </select>
+        </div>
+
+        <section id="edicaoMidiaPost" class="stack">
+          <div class="field">
+            <label for="edicaoImagemPost">Trocar arte do post</label>
+            <input type="file" id="edicaoImagemPost" accept="image/*">
+          </div>
+          <div id="edicaoPreviewImagemPost" class="empty">Nenhuma imagem atual.</div>
+        </section>
+
+        <section id="edicaoMidiaCarrossel" class="stack" style="display: none;">
+          <div class="field">
+            <label for="edicaoImagensCarrossel">Trocar páginas do carrossel</label>
+            <input type="file" id="edicaoImagensCarrossel" accept="image/*" multiple>
+          </div>
+          <div id="edicaoPreviewCarrossel" class="list"></div>
+        </section>
+
+        <section id="edicaoMidiaReels" class="stack" style="display: none;">
+          <div class="field">
+            <label for="edicaoVideoReels">Trocar vídeo do reels</label>
+            <input type="file" id="edicaoVideoReels" accept="video/*">
+          </div>
+          <div id="edicaoPreviewVideoReels" class="empty">Nenhum vídeo atual.</div>
+
+          <div class="field">
+            <label for="edicaoCapaReels">Trocar capa do reels</label>
+            <input type="file" id="edicaoCapaReels" accept="image/*">
+          </div>
+          <div id="edicaoPreviewCapaReels" class="empty">Nenhuma capa atual.</div>
+        </section>
+
+        <section id="edicaoMidiaRoteiro" class="stack" style="display: none;">
+          <div class="empty">Roteiro não exige mídia anexa.</div>
+        </section>
+
+        <div class="actions">
+          <button type="submit" class="button">Salvar alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const programacaoId = params.get('id');
+    const clienteId = params.get('clienteId');
+
+    const dadosProgramacao = document.getElementById('dadosProgramacao');
+    const listaConteudos = document.getElementById('listaConteudos');
+    const mensagemFormulario = document.getElementById('mensagemFormulario');
+    const clienteLink = document.getElementById('clienteLink');
+    const voltarCliente = document.getElementById('voltarCliente');
+    const linkProgramacaoTexto = document.getElementById('linkProgramacaoTexto');
+    const linkProgramacaoAbrir = document.getElementById('linkProgramacaoAbrir');
+    const copiarLinkProgramacao = document.getElementById('copiarLinkProgramacao');
+    const tipoSelect = document.getElementById('tipo');
+    const conteudoForm = document.getElementById('conteudoForm');
+    const modalEdicaoConteudo = document.getElementById('modalEdicaoConteudo');
+    const formEdicaoConteudo = document.getElementById('formEdicaoConteudo');
+    const mensagemModalEdicao = document.getElementById('mensagemModalEdicao');
+    let conteudoEmEdicao = null;
+
+    const secoesMidia = {
+      post: document.getElementById('midiaPost'),
+      carrossel: document.getElementById('midiaCarrossel'),
+      reels: document.getElementById('midiaReels'),
+      roteiro: document.getElementById('midiaRoteiro')
+    };
+
+    const inputsMidia = {
+      imagemPost: document.getElementById('imagemPost'),
+      imagensCarrossel: document.getElementById('imagensCarrossel'),
+      videoReels: document.getElementById('videoReels'),
+      capaReels: document.getElementById('capaReels')
+    };
+
+    const secoesMidiaEdicao = {
+      post: document.getElementById('edicaoMidiaPost'),
+      carrossel: document.getElementById('edicaoMidiaCarrossel'),
+      reels: document.getElementById('edicaoMidiaReels'),
+      roteiro: document.getElementById('edicaoMidiaRoteiro')
+    };
+
+    const inputsMidiaEdicao = {
+      imagemPost: document.getElementById('edicaoImagemPost'),
+      imagensCarrossel: document.getElementById('edicaoImagensCarrossel'),
+      videoReels: document.getElementById('edicaoVideoReels'),
+      capaReels: document.getElementById('edicaoCapaReels')
+    };
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemFormulario.textContent = texto;
+      mensagemFormulario.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemFormulario.style.display = 'block';
+    }
+
+    function esconderMensagem() {
+      mensagemFormulario.style.display = 'none';
+    }
+
+    function exibirMensagemModal(texto, tipo = 'sucesso') {
+      mensagemModalEdicao.textContent = texto;
+      mensagemModalEdicao.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemModalEdicao.style.display = 'block';
+    }
+
+    function esconderMensagemModal() {
+      mensagemModalEdicao.style.display = 'none';
+    }
+
+    function formatarData(data) {
+      if (!data) {
+        return '-';
+      }
+
+      return new Date(data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    }
+
+    function montarLinkAprovacaoProgramacao() {
+      return `${window.location.origin}/aprovacao.html?clienteId=${clienteId}&programacaoId=${programacaoId}`;
+    }
+
+    async function copiarLink(link) {
+      await navigator.clipboard.writeText(link);
+      alert('Link copiado com sucesso.');
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
+    }
+
+    function atualizarSecoesMidiaEdicao() {
+      const tipoAtual = document.getElementById('edicaoTipo').value;
+
+      Object.entries(secoesMidiaEdicao).forEach(([tipo, secao]) => {
+        secao.style.display = tipo === tipoAtual ? 'grid' : 'none';
+      });
+    }
+
+    function abrirModalEdicao(conteudo) {
+      conteudoEmEdicao = conteudo;
+      esconderMensagemModal();
+      document.getElementById('edicaoConteudoId').value = conteudo.id;
+      document.getElementById('edicaoTipo').value = conteudo.tipo;
+      document.getElementById('edicaoDataPublicacao').value = conteudo.data_publicacao || '';
+      document.getElementById('edicaoLegenda').value = conteudo.legenda || '';
+      document.getElementById('edicaoStatus').value = conteudo.status;
+
+      Object.values(inputsMidiaEdicao).forEach((input) => {
+        input.value = '';
+      });
+
+      document.getElementById('edicaoPreviewImagemPost').innerHTML = conteudo.imagem_post_url
+        ? `<img src="${conteudo.imagem_post_url}" alt="${conteudo.titulo}" style="width: 100%; border-radius: 12px; display: block;">`
+        : 'Nenhuma imagem atual.';
+
+      document.getElementById('edicaoPreviewCarrossel').innerHTML = conteudo.imagens_carrossel_urls?.length
+        ? conteudo.imagens_carrossel_urls.map((url, index) => `
+            <div class="item">
+              <p><strong>Página ${index + 1}</strong></p>
+              <img src="${url}" alt="Página ${index + 1}" style="width: 100%; border-radius: 12px; display: block;">
+            </div>
+          `).join('')
+        : '<div class="empty">Nenhuma página atual.</div>';
+
+      document.getElementById('edicaoPreviewVideoReels').innerHTML = conteudo.video_reels_url
+        ? `<video controls${conteudo.capa_reels_url ? ` poster="${conteudo.capa_reels_url}"` : ''} style="width: 100%; border-radius: 12px; display: block; background: #000;"><source src="${conteudo.video_reels_url}"></video>`
+        : 'Nenhum vídeo atual.';
+
+      document.getElementById('edicaoPreviewCapaReels').innerHTML = conteudo.capa_reels_url
+        ? `<img src="${conteudo.capa_reels_url}" alt="Capa do reels" style="width: 100%; border-radius: 12px; display: block;">`
+        : 'Nenhuma capa atual.';
+
+      atualizarSecoesMidiaEdicao();
+      modalEdicaoConteudo.style.display = 'block';
+    }
+
+    function fecharModalEdicao() {
+      modalEdicaoConteudo.style.display = 'none';
+      conteudoEmEdicao = null;
+    }
+
+    async function excluirConteudo(id, titulo) {
+      const confirmou = window.confirm(`Excluir o conteúdo "${titulo}"?`);
+
+      if (!confirmou) {
+        return;
+      }
+
+      const resposta = await fetch(`/conteudos/${id}`, {
+        method: 'DELETE'
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao excluir conteúdo.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      carregarConteudos();
+    }
+
+    function limparPreviews() {
+      document.getElementById('previewImagemPost').innerHTML = 'Nenhuma imagem selecionada.';
+      document.getElementById('previewCarrossel').innerHTML = '<div class="empty">Nenhuma página selecionada.</div>';
+      document.getElementById('previewVideoReels').innerHTML = 'Nenhum vídeo selecionado.';
+      document.getElementById('previewCapaReels').innerHTML = 'Nenhuma capa selecionada.';
+    }
+
+    function limparInputsMidia() {
+      Object.values(inputsMidia).forEach((input) => {
+        input.value = '';
+      });
+
+      limparPreviews();
+    }
+
+    function atualizarSecoesMidia() {
+      const tipoAtual = tipoSelect.value;
+
+      Object.entries(secoesMidia).forEach(([tipo, secao]) => {
+        secao.style.display = tipo === tipoAtual ? 'grid' : 'none';
+      });
+    }
+
+    function criarPreviewImagem(arquivo) {
+      const url = URL.createObjectURL(arquivo);
+      return `
+        <div class="item">
+          <img src="${url}" alt="${arquivo.name}" style="width: 100%; border-radius: 12px; display: block; margin-bottom: 10px;">
+          <strong>${arquivo.name}</strong>
+        </div>
+      `;
+    }
+
+    function mostrarArquivoImagemUnico(input, previewId, vazioTexto) {
+      const preview = document.getElementById(previewId);
+      const arquivo = input.files[0];
+
+      if (!arquivo) {
+        preview.textContent = vazioTexto;
+        return;
+      }
+
+      preview.innerHTML = criarPreviewImagem(arquivo);
+    }
+
+    function mostrarMultiplasImagens(input, previewId, vazioTexto) {
+      const preview = document.getElementById(previewId);
+      const arquivos = Array.from(input.files);
+
+      if (!arquivos.length) {
+        preview.innerHTML = `<div class="empty">${vazioTexto}</div>`;
+        return;
+      }
+
+      preview.innerHTML = arquivos.map((arquivo, index) => `
+        <div class="item">
+          <p><strong>Página ${index + 1}</strong></p>
+          <img src="${URL.createObjectURL(arquivo)}" alt="${arquivo.name}" style="width: 100%; border-radius: 12px; display: block; margin-bottom: 10px;">
+          <span>${arquivo.name}</span>
+        </div>
+      `).join('');
+    }
+
+    function mostrarVideo(input, previewId, vazioTexto) {
+      const preview = document.getElementById(previewId);
+      const arquivo = input.files[0];
+
+      if (!arquivo) {
+        preview.textContent = vazioTexto;
+        return;
+      }
+
+      preview.innerHTML = `
+        <div class="item">
+          <video controls style="width: 100%; border-radius: 12px; margin-bottom: 10px;">
+            <source src="${URL.createObjectURL(arquivo)}" type="${arquivo.type}">
+          </video>
+          <strong>${arquivo.name}</strong>
+        </div>
+      `;
+    }
+
+    function renderizarSliderCarrossel(urls, conteudoId) {
+      if (!urls?.length) {
+        return '';
+      }
+
+      return `
+        <div class="carrossel-slider" data-carrossel-id="${conteudoId}" data-total-slides="${urls.length}" data-slide-atual="0" style="margin-bottom: 12px;">
+          <div style="position: relative; overflow: hidden; border-radius: 16px; background: #f6eee3; border: 1px solid #e7d8c5;">
+            <div class="carrossel-track" style="display: flex; transition: transform 0.28s ease;">
+              ${urls.map((url, index) => `
+                <div style="min-width: 100%; padding: 14px;">
+                  <img
+                    src="${url}"
+                    alt="Página ${index + 1}"
+                    style="width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 12px; display: block;"
+                  >
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px;">
+            <button type="button" class="button secondary carrossel-anterior">Anterior</button>
+            <span class="carrossel-indicador" style="font-weight: 700; color: #5b3b18;">1 de ${urls.length}</span>
+            <button type="button" class="button secondary carrossel-proximo">Próximo</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function atualizarSliderCarrossel(container, proximoIndice) {
+      const totalSlides = Number(container.dataset.totalSlides);
+      const indiceNormalizado = ((proximoIndice % totalSlides) + totalSlides) % totalSlides;
+      const track = container.querySelector('.carrossel-track');
+      const indicador = container.querySelector('.carrossel-indicador');
+
+      container.dataset.slideAtual = String(indiceNormalizado);
+      track.style.transform = `translateX(-${indiceNormalizado * 100}%)`;
+      indicador.textContent = `${indiceNormalizado + 1} de ${totalSlides}`;
+    }
+
+    function ativarSlidersCarrossel() {
+      document.querySelectorAll('.carrossel-slider').forEach((container) => {
+        if (container.dataset.sliderAtivado === 'true') {
+          return;
+        }
+
+        const botaoAnterior = container.querySelector('.carrossel-anterior');
+        const botaoProximo = container.querySelector('.carrossel-proximo');
+
+        botaoAnterior.addEventListener('click', () => {
+          const indiceAtual = Number(container.dataset.slideAtual || 0);
+          atualizarSliderCarrossel(container, indiceAtual - 1);
+        });
+
+        botaoProximo.addEventListener('click', () => {
+          const indiceAtual = Number(container.dataset.slideAtual || 0);
+          atualizarSliderCarrossel(container, indiceAtual + 1);
+        });
+
+        container.dataset.sliderAtivado = 'true';
+      });
+    }
+
+    async function carregarProgramacao() {
+      if (!programacaoId) {
+        dadosProgramacao.innerHTML = '<div class="feedback error">Programação não informada.</div>';
+        return;
+      }
+
+      const resposta = await fetch(`/programacoes/${programacaoId}`);
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        dadosProgramacao.innerHTML = `<div class="feedback error">${resultado.mensagem}</div>`;
+        return;
+      }
+
+      clienteLink.href = `/cliente.html?id=${resultado.cliente_id}`;
+      voltarCliente.href = `/cliente.html?id=${resultado.cliente_id}`;
+
+      const linkProgramacao = montarLinkAprovacaoProgramacao();
+      linkProgramacaoTexto.innerHTML = `<strong>Link:</strong> <a href="${linkProgramacao}" target="_blank">${linkProgramacao}</a>`;
+      linkProgramacaoAbrir.href = linkProgramacao;
+      copiarLinkProgramacao.onclick = () => copiarLink(linkProgramacao);
+
+      dadosProgramacao.innerHTML = `
+        <h2>${resultado.nome || 'Programação sem nome'}</h2>
+        <p><strong>Cliente:</strong> ${resultado.cliente_nome}</p>
+        <p><strong>Programação:</strong> ${formatarData(resultado.data_inicio)} até ${formatarData(resultado.data_fim)}</p>
+        <p><strong>ID da programação:</strong> ${resultado.id}</p>
+      `;
+    }
+
+    function renderizarMidiasConteudo(conteudo) {
+      if (conteudo.tipo === 'post' && conteudo.imagem_post_url) {
+        return `<img src="${conteudo.imagem_post_url}" alt="${conteudo.titulo}" style="width: 100%; border-radius: 12px; margin-bottom: 12px;">`;
+      }
+
+      if (conteudo.tipo === 'carrossel' && conteudo.imagens_carrossel_urls?.length) {
+        return renderizarSliderCarrossel(conteudo.imagens_carrossel_urls, conteudo.id);
+      }
+
+      if (conteudo.tipo === 'reels') {
+        if (!conteudo.video_reels_url) {
+          return '';
+        }
+
+        const poster = conteudo.capa_reels_url
+          ? ` poster="${conteudo.capa_reels_url}"`
+          : '';
+
+        return `
+          <video controls${poster} style="width: 100%; border-radius: 12px; margin-bottom: 12px; display: block; background: #000;">
+            <source src="${conteudo.video_reels_url}">
+          </video>
+        `;
+      }
+
+      return '';
+    }
+
+    function renderizarConteudos(conteudos) {
+      if (!conteudos.length) {
+        listaConteudos.innerHTML = '<div class="empty">Nenhum conteúdo cadastrado nesta programação.</div>';
+        return;
+      }
+
+      listaConteudos.innerHTML = '';
+
+      conteudos.forEach((conteudo) => {
+        const item = document.createElement('article');
+
+        item.className = 'item';
+        item.innerHTML = `
+          <div class="meta">
+            <span class="tag">${conteudo.tipo}</span>
+            <span class="tag">${conteudo.status}</span>
+            <span class="tag">${formatarData(conteudo.data_publicacao)}</span>
+          </div>
+          ${renderizarMidiasConteudo(conteudo)}
+          <h3>${conteudo.titulo}</h3>
+          <p><strong>Publicação:</strong> ${formatarData(conteudo.data_publicacao)}</p>
+          <p>${conteudo.legenda || 'Sem legenda cadastrada.'}</p>
+          <p><strong>Criado em:</strong> ${new Date(conteudo.criado_em).toLocaleString('pt-BR')}</p>
+          <div class="actions">
+            <button class="button secondary" type="button" data-acao="editar">Editar</button>
+            <button class="button secondary" type="button" data-acao="excluir">Excluir</button>
+          </div>
+        `;
+
+        item.querySelector('[data-acao="editar"]').addEventListener('click', () => abrirModalEdicao(conteudo));
+        item.querySelector('[data-acao="excluir"]').addEventListener('click', () => excluirConteudo(conteudo.id, conteudo.titulo));
+
+        listaConteudos.appendChild(item);
+      });
+
+      ativarSlidersCarrossel();
+    }
+
+    async function carregarConteudos() {
+      if (!programacaoId || !clienteId) {
+        listaConteudos.innerHTML = '<div class="feedback error">Cliente ou programação não informados na URL.</div>';
+        return;
+      }
+
+      const resposta = await fetch(`/clientes/${clienteId}/programacoes/${programacaoId}/conteudos`);
+      const conteudos = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        listaConteudos.innerHTML = `<div class="feedback error">${conteudos.mensagem}</div>`;
+        return;
+      }
+
+      renderizarConteudos(conteudos);
+    }
+
+    tipoSelect.addEventListener('change', atualizarSecoesMidia);
+
+    inputsMidia.imagemPost.addEventListener('change', () => {
+      mostrarArquivoImagemUnico(inputsMidia.imagemPost, 'previewImagemPost', 'Nenhuma imagem selecionada.');
+    });
+
+    inputsMidia.imagensCarrossel.addEventListener('change', () => {
+      mostrarMultiplasImagens(inputsMidia.imagensCarrossel, 'previewCarrossel', 'Nenhuma página selecionada.');
+    });
+
+    inputsMidia.videoReels.addEventListener('change', () => {
+      mostrarVideo(inputsMidia.videoReels, 'previewVideoReels', 'Nenhum vídeo selecionado.');
+    });
+
+    inputsMidia.capaReels.addEventListener('change', () => {
+      mostrarArquivoImagemUnico(inputsMidia.capaReels, 'previewCapaReels', 'Nenhuma capa selecionada.');
+    });
+
+    document.getElementById('edicaoTipo').addEventListener('change', atualizarSecoesMidiaEdicao);
+    document.getElementById('fecharModalEdicao').addEventListener('click', fecharModalEdicao);
+    modalEdicaoConteudo.addEventListener('click', (event) => {
+      if (event.target === modalEdicaoConteudo) {
+        fecharModalEdicao();
+      }
+    });
+
+    inputsMidiaEdicao.imagemPost.addEventListener('change', () => {
+      mostrarArquivoImagemUnico(inputsMidiaEdicao.imagemPost, 'edicaoPreviewImagemPost', 'Nenhuma imagem atual.');
+    });
+
+    inputsMidiaEdicao.imagensCarrossel.addEventListener('change', () => {
+      mostrarMultiplasImagens(inputsMidiaEdicao.imagensCarrossel, 'edicaoPreviewCarrossel', 'Nenhuma página atual.');
+    });
+
+    inputsMidiaEdicao.videoReels.addEventListener('change', () => {
+      mostrarVideo(inputsMidiaEdicao.videoReels, 'edicaoPreviewVideoReels', 'Nenhum vídeo atual.');
+    });
+
+    inputsMidiaEdicao.capaReels.addEventListener('change', () => {
+      mostrarArquivoImagemUnico(inputsMidiaEdicao.capaReels, 'edicaoPreviewCapaReels', 'Nenhuma capa atual.');
+    });
+
+    conteudoForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      esconderMensagem();
+
+      const formData = new FormData();
+      const tipo = document.getElementById('tipo').value;
+
+      formData.append('tipo', tipo);
+      formData.append('data_publicacao', document.getElementById('dataPublicacao').value);
+      formData.append('legenda', document.getElementById('legenda').value);
+      formData.append('status', document.getElementById('status').value);
+
+      if (tipo === 'post' && inputsMidia.imagemPost.files[0]) {
+        formData.append('imagem_post', inputsMidia.imagemPost.files[0]);
+      }
+
+      if (tipo === 'carrossel') {
+        Array.from(inputsMidia.imagensCarrossel.files).forEach((arquivo) => {
+          formData.append('imagens_carrossel', arquivo);
+        });
+      }
+
+      if (tipo === 'reels') {
+        if (inputsMidia.videoReels.files[0]) {
+          formData.append('video_reels', inputsMidia.videoReels.files[0]);
+        }
+
+        if (inputsMidia.capaReels.files[0]) {
+          formData.append('capa_reels', inputsMidia.capaReels.files[0]);
+        }
+      }
+
+      const resposta = await fetch(`/clientes/${clienteId}/programacoes/${programacaoId}/conteudos`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao salvar conteúdo.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      event.target.reset();
+      limparInputsMidia();
+      atualizarSecoesMidia();
+      carregarConteudos();
+    });
+
+    formEdicaoConteudo.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!conteudoEmEdicao) {
+        return;
+      }
+
+      esconderMensagemModal();
+
+      const formData = new FormData();
+      const tipo = document.getElementById('edicaoTipo').value;
+
+      formData.append('tipo', tipo);
+      formData.append('data_publicacao', document.getElementById('edicaoDataPublicacao').value);
+      formData.append('legenda', document.getElementById('edicaoLegenda').value);
+      formData.append('status', document.getElementById('edicaoStatus').value);
+
+      if (tipo === 'post' && inputsMidiaEdicao.imagemPost.files[0]) {
+        formData.append('imagem_post', inputsMidiaEdicao.imagemPost.files[0]);
+      }
+
+      if (tipo === 'carrossel') {
+        Array.from(inputsMidiaEdicao.imagensCarrossel.files).forEach((arquivo) => {
+          formData.append('imagens_carrossel', arquivo);
+        });
+      }
+
+      if (tipo === 'reels') {
+        if (inputsMidiaEdicao.videoReels.files[0]) {
+          formData.append('video_reels', inputsMidiaEdicao.videoReels.files[0]);
+        }
+
+        if (inputsMidiaEdicao.capaReels.files[0]) {
+          formData.append('capa_reels', inputsMidiaEdicao.capaReels.files[0]);
+        }
+      }
+
+      const resposta = await fetch(`/conteudos/${conteudoEmEdicao.id}`, {
+        method: 'PUT',
+        body: formData
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagemModal(resultado.mensagem || 'Erro ao atualizar conteúdo.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      fecharModalEdicao();
+      carregarConteudos();
+    });
+
+    atualizarSecoesMidia();
+    limparInputsMidia();
+    carregarProgramacao();
+    carregarConteudos();
+  </script>
+</body>
+</html>

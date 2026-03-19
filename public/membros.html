@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Membros - Engage Publisher</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <div class="breadcrumbs">
+      <a href="/dashboard.html">Dashboard</a>
+      <span>/</span>
+      <span>Membros</span>
+    </div>
+
+    <section class="hero">
+      <h1>Membros da Equipe</h1>
+      <p>Convide novos membros por e-mail e acompanhe os convites enviados.</p>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Novo Convite</h2>
+        <div id="mensagemConvite" class="feedback" style="display: none;"></div>
+
+        <form id="conviteForm" class="stack">
+          <div class="field">
+            <label for="nomeConvite">Nome</label>
+            <input type="text" id="nomeConvite" placeholder="Nome do membro" required>
+          </div>
+
+          <div class="field">
+            <label for="emailConvite">E-mail</label>
+            <input type="email" id="emailConvite" placeholder="email@clinica.com" required>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="button">Enviar convite</button>
+            <a class="button secondary" href="/dashboard.html">Voltar ao dashboard</a>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Equipe Ativa</h2>
+        <div id="listaUsuarios" class="list"></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div>
+          <h2 style="margin-bottom: 8px;">Convites Enviados</h2>
+          <p style="margin: 0;">Links aparecem aqui para conferência e reenvio manual quando necessário.</p>
+        </div>
+        <button id="atualizarConvites" type="button" class="button secondary">Atualizar lista</button>
+      </div>
+
+      <div id="listaConvites" class="list" style="margin-top: 18px;"></div>
+    </section>
+  </main>
+
+  <script>
+    const mensagemConvite = document.getElementById('mensagemConvite');
+    const listaUsuarios = document.getElementById('listaUsuarios');
+    const listaConvites = document.getElementById('listaConvites');
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemConvite.textContent = texto;
+      mensagemConvite.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemConvite.style.display = 'block';
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
+    }
+
+    function formatarData(data) {
+      if (!data) {
+        return '-';
+      }
+
+      return new Date(data).toLocaleString('pt-BR');
+    }
+
+    function renderizarUsuarios(usuarios) {
+      if (!usuarios.length) {
+        listaUsuarios.innerHTML = '<div class="empty">Nenhum membro ativo encontrado.</div>';
+        return;
+      }
+
+      listaUsuarios.innerHTML = '';
+
+      usuarios.forEach((usuario) => {
+        const item = document.createElement('article');
+        item.className = 'item';
+        item.innerHTML = `
+          <h3>${usuario.nome || 'Usuário sem nome'}</h3>
+          <p><strong>E-mail:</strong> ${usuario.email}</p>
+          <p><strong>ID:</strong> ${usuario.id}</p>
+        `;
+        listaUsuarios.appendChild(item);
+      });
+    }
+
+    function renderizarConvites(convites) {
+      if (!convites.length) {
+        listaConvites.innerHTML = '<div class="empty">Nenhum convite enviado até agora.</div>';
+        return;
+      }
+
+      listaConvites.innerHTML = '';
+
+      convites.forEach((convite) => {
+        const item = document.createElement('article');
+        item.className = 'item';
+
+        const statusClasse = convite.status === 'aceito' ? 'tag' : 'tag';
+        const expiracao = convite.expirado_em ? formatarData(convite.expirado_em) : '-';
+        const linkConvite = `${window.location.origin}/aceitar-convite.html?token=${convite.token}`;
+
+        item.innerHTML = `
+          <h3>${convite.nome}</h3>
+          <div class="meta">
+            <span class="${statusClasse}">${convite.status}</span>
+            <span class="tag">Criado em ${formatarData(convite.criado_em)}</span>
+            <span class="tag">Expira em ${expiracao}</span>
+          </div>
+          <p><strong>E-mail:</strong> ${convite.email}</p>
+          <div class="field" style="margin-top: 12px;">
+            <label>Link do convite</label>
+            <input type="text" value="${linkConvite}" readonly>
+          </div>
+          <div class="actions" style="margin-top: 12px;">
+            <button type="button" class="button secondary" data-acao="copiar-link">Copiar link</button>
+          </div>
+        `;
+
+        item.querySelector('[data-acao="copiar-link"]').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(linkConvite);
+            exibirMensagem('Link do convite copiado.');
+          } catch (erro) {
+            exibirMensagem('Não foi possível copiar o link automaticamente.', 'erro');
+          }
+        });
+
+        listaConvites.appendChild(item);
+      });
+    }
+
+    async function carregarUsuarios() {
+      const resposta = await fetch('/usuarios-equipe');
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        listaUsuarios.innerHTML = `<div class="feedback error">${resultado.mensagem || 'Erro ao carregar equipe.'}</div>`;
+        return;
+      }
+
+      renderizarUsuarios(resultado);
+    }
+
+    async function carregarConvites() {
+      const resposta = await fetch('/convites');
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        listaConvites.innerHTML = `<div class="feedback error">${resultado.mensagem || 'Erro ao carregar convites.'}</div>`;
+        return;
+      }
+
+      renderizarConvites(resultado);
+    }
+
+    document.getElementById('conviteForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const nome = document.getElementById('nomeConvite').value;
+      const email = document.getElementById('emailConvite').value;
+
+      const resposta = await fetch('/convites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ nome, email })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao criar convite.', 'erro');
+        return;
+      }
+
+      exibirMensagem(resultado.mensagem);
+      event.target.reset();
+      carregarConvites();
+      carregarUsuarios();
+    });
+
+    document.getElementById('atualizarConvites').addEventListener('click', () => {
+      carregarConvites();
+      carregarUsuarios();
+    });
+
+    carregarUsuarios();
+    carregarConvites();
+  </script>
+</body>
+</html>
