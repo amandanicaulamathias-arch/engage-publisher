@@ -15,13 +15,39 @@ const uploadsDir = process.env.UPLOADS_DIR
   : path.join(publicDir, 'uploads');
 const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'troque-esta-chave-em-producao';
+const configuredOrigins = [
+  APP_BASE_URL,
+  process.env.CORS_ORIGIN,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+].filter(Boolean);
+
+function normalizarOrigin(origin) {
+  try {
+    return new URL(origin).origin;
+  } catch (error) {
+    return null;
+  }
+}
+
+function obterHostname(origin) {
+  try {
+    return new URL(origin).hostname;
+  } catch (error) {
+    return null;
+  }
+}
+
 const allowedOrigins = new Set(
-  [
-    APP_BASE_URL,
-    process.env.CORS_ORIGIN,
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ].filter(Boolean)
+  configuredOrigins
+    .map(normalizarOrigin)
+    .filter(Boolean)
+);
+
+const allowedHostnames = new Set(
+  configuredOrigins
+    .map(obterHostname)
+    .filter(Boolean)
 );
 
 const mailTransport = process.env.SMTP_HOST
@@ -105,25 +131,22 @@ app.use((req, res, next) => {
 });
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  const originNormalizada = normalizarOrigin(origin);
 
-  if (!origin || allowedOrigins.has(origin)) {
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-    }
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
-    }
-
-    return next();
+  if (origin && originNormalizada) {
+    res.setHeader('Access-Control-Allow-Origin', originNormalizada);
+    res.setHeader('Vary', 'Origin');
   }
 
-  return res.status(403).json({ mensagem: 'Origem não permitida.' });
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
 });
 app.use('/uploads', express.static(uploadsDir));
 app.use(express.static(publicDir));
