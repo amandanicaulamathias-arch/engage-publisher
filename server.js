@@ -629,6 +629,14 @@ app.post('/cadastro', async (req, res) => {
       usuario: resultado.rows[0]
     });
   } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ mensagem: 'Já existe uma conta com este e-mail.' });
+    }
+
+    if (error.code === '42501') {
+      return res.status(500).json({ mensagem: 'Usuário do banco sem permissão para criar contas.' });
+    }
+
     responderErro(res, error, 'Erro ao criar conta.');
   }
 });
