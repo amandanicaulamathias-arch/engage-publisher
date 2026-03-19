@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar Conta - Engage Publisher</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero" style="max-width: 560px; margin: 64px auto 0;">
+      <h1>Criar Conta</h1>
+      <p>Cadastre um usuário da equipe para acessar o sistema.</p>
+      <div id="mensagemCadastro" class="feedback" style="display: none;"></div>
+
+      <form id="cadastroForm" class="stack">
+        <div class="field">
+          <label for="nome">Nome</label>
+          <input type="text" id="nome" name="nome" required>
+        </div>
+
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="field">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" name="senha" minlength="4" required>
+        </div>
+
+        <div class="field">
+          <label for="confirmacaoSenha">Confirmar senha</label>
+          <input type="password" id="confirmacaoSenha" name="confirmacaoSenha" minlength="4" required>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="button">Criar conta</button>
+          <a class="button secondary" href="/login.html">Voltar ao login</a>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const mensagemCadastro = document.getElementById('mensagemCadastro');
+
+    function exibirMensagem(texto, tipo = 'sucesso') {
+      mensagemCadastro.textContent = texto;
+      mensagemCadastro.className = tipo === 'erro' ? 'feedback error' : 'feedback';
+      mensagemCadastro.style.display = 'block';
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
+    }
+
+    document.getElementById('cadastroForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const nome = document.getElementById('nome').value;
+      const email = document.getElementById('email').value;
+      const senha = document.getElementById('senha').value;
+      const confirmacaoSenha = document.getElementById('confirmacaoSenha').value;
+
+      if (senha !== confirmacaoSenha) {
+        exibirMensagem('A confirmação de senha não confere.', 'erro');
+        return;
+      }
+
+      const resposta = await fetch('/cadastro', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ nome, email, senha })
+      });
+
+      const resultado = await lerResposta(resposta);
+
+      if (!resposta.ok) {
+        exibirMensagem(resultado.mensagem || 'Erro ao criar conta.', 'erro');
+        return;
+      }
+
+      exibirMensagem('Conta criada com sucesso. Você já pode fazer login.');
+      event.target.reset();
+
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 1200);
+    });
+  </script>
+</body>
+</html>

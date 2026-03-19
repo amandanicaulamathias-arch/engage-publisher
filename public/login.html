@@ -25,6 +25,7 @@
 
         <div class="actions">
           <button type="submit" class="button">Entrar</button>
+          <a class="button secondary" href="/cadastro.html">Criar conta</a>
         </div>
       </form>
     </section>
@@ -37,6 +38,19 @@
       mensagemLogin.textContent = texto;
       mensagemLogin.className = tipo === 'erro' ? 'feedback error' : 'feedback';
       mensagemLogin.style.display = 'block';
+    }
+
+    async function lerResposta(resposta) {
+      const contentType = resposta.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        return resposta.json();
+      }
+
+      const texto = await resposta.text();
+      return {
+        mensagem: texto.startsWith('<!DOCTYPE') ? 'O servidor respondeu com HTML em vez de JSON.' : texto
+      };
     }
 
     document.getElementById('loginForm').addEventListener('submit', async (event) => {
@@ -54,7 +68,7 @@
           body: JSON.stringify({ email, senha })
         });
 
-        const resultado = await resposta.json();
+        const resultado = await lerResposta(resposta);
 
         if (!resposta.ok) {
           exibirMensagem(resultado.mensagem || 'Erro no login.', 'erro');

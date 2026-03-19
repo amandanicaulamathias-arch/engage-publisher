@@ -568,6 +568,48 @@ app.post('/login', async (req, res) => {
   }
 });
 
+app.post('/cadastro', async (req, res) => {
+  const { nome, email, senha } = req.body;
+
+  if (!nome || !String(nome).trim()) {
+    return res.status(400).json({ mensagem: 'Nome é obrigatório.' });
+  }
+
+  if (!email || !String(email).trim()) {
+    return res.status(400).json({ mensagem: 'E-mail é obrigatório.' });
+  }
+
+  if (!senha || !String(senha).trim()) {
+    return res.status(400).json({ mensagem: 'Senha é obrigatória.' });
+  }
+
+  const emailNormalizado = String(email).trim().toLowerCase();
+
+  try {
+    const usuarioExistente = await buscarUsuarioPorEmail(emailNormalizado);
+
+    if (usuarioExistente) {
+      return res.status(400).json({ mensagem: 'Já existe uma conta com este e-mail.' });
+    }
+
+    const resultado = await pool.query(
+      `
+        INSERT INTO usuarios (nome, email, senha)
+        VALUES ($1, $2, $3)
+        RETURNING id, nome, email
+      `,
+      [String(nome).trim(), emailNormalizado, String(senha).trim()]
+    );
+
+    res.status(201).json({
+      mensagem: 'Conta criada com sucesso.',
+      usuario: resultado.rows[0]
+    });
+  } catch (error) {
+    responderErro(res, error, 'Erro ao criar conta.');
+  }
+});
+
 app.post('/convites', async (req, res) => {
   const { nome, email } = req.body;
 
